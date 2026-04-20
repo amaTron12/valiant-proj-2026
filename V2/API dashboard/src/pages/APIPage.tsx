@@ -74,7 +74,7 @@ const ALL_PERMISSIONS = [
   'reports:read', 'reports:write', 'webhooks:manage',
 ]
 
-const BASE_URL = 'https://api.valiantinsurance.com'
+const BASE_URL = 'https://api.your-domain.com'
 
 // ── Token modal ───────────────────────────────────────────────────────────────
 
