@@ -33,7 +33,7 @@ const INITIAL_TOKENS: APIToken[] = [
     id: '2',
     name: 'Internal Integration',
     type: 'Secret',
-    key: 'sk_live_REDACTED',
+    key: 'sk_live_••••••••••••••••••••••••••••••••',
     created: '2026-02-20',
     lastUsed: '2026-04-18',
     status: 'Active',
