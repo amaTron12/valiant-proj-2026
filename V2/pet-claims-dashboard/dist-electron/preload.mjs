@@ -1,0 +1,1 @@
+"use strict";const i=require("electron");i.contextBridge.exposeInMainWorld("api",{getClaims:()=>i.ipcRenderer.invoke("get-claims"),createClaim:e=>i.ipcRenderer.invoke("create-claim",e),updateClaim:(e,r)=>i.ipcRenderer.invoke("update-claim",e,r),deleteClaim:e=>i.ipcRenderer.invoke("delete-claim",e)});

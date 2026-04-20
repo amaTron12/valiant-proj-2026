@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast, sys; ast.parse\\(open\\('app.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('app.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")",
+      "Bash(python3 -c \"import pandas as pd; df = pd.read_csv\\('claims.csv'\\); print\\(df.shape\\); print\\(df.columns.tolist\\(\\)\\); print\\(df[['claim_id','client_name','status','total_amount_paid']].to_string\\(\\)\\)\")",
+      "Bash(pip3 install *)",
+      "Bash(python3 -c \"import pandas as pd; df = pd.read_csv\\('claims.csv'\\); print\\(df.shape\\); print\\(df[['claim_id','client_name','status','total_amount_paid']].to_string\\(\\)\\)\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import ast; [ast.parse\\(open\\(f\\).read\\(\\)\\) for f in ['components/sidebar.py','components/styles.py']]; print\\('OK'\\)\")",
+      "Bash(python3 -c \"import ast; ast.parse\\(open\\('components/styles.py'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(venv/bin/python -c \"from components.kpi import kpi_row\")",
+      "Bash(venv/bin/python -c \"import app\")",
+      "Bash(python3 -c \"from components.kpi import kpi_row\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(python3 -c \"import app\")"
+    ]
+  }
+}

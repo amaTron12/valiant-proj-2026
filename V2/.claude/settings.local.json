@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(CXXFLAGS=\"-std=c++20\" npm install)",
+      "Bash(npm_config_CXXFLAGS=\"-std=c++20\" npm install better-sqlite3)",
+      "Bash(npx electron-rebuild *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(node scripts/create-icons.mjs)"
+    ]
+  }
+}

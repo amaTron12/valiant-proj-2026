@@ -1,0 +1,81 @@
+{
+  "name": "pet-claims-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:web": "vite --config vite.web.config.ts",
+    "build": "vite build",
+    "postinstall": "electron-rebuild -f -w better-sqlite3",
+    "icons": "node scripts/create-icons.mjs",
+    "electron:build": "npm run icons && vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "lucide-react": "^0.344.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "recharts": "^2.12.0",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.11.5",
+    "@types/react": "^18.2.48",
+    "@types/react-dom": "^18.2.18",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.9.1",
+    "postcss": "^8.4.33",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vite-plugin-electron": "^0.28.4",
+    "vite-plugin-electron-renderer": "^0.14.5"
+  },
+  "build": {
+    "appId": "com.valiant.petinsuranceclaims",
+    "productName": "Pet Insurance Claims",
+    "asar": true,
+    "icon": "build/icon",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "category": "public.app-category.business"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

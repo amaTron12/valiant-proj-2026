@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "pet-claims-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:web", "--prefix", "pet-claims-dashboard"],
+      "port": 5173
+    }
+  ]
+}
