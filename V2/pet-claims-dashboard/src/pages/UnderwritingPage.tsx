@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, PieChart, Pie, Legend
 } from 'recharts'
-import { Shield, AlertTriangle, XCircle, Clock, FileSearch, ChevronDown, ChevronUp, X, Info } from 'lucide-react'
-import { Claim } from '../types'
+import { Shield, AlertTriangle, XCircle, Clock, FileSearch, ChevronDown, ChevronUp, X, Info, CalendarRange, RotateCcw, PawPrint } from 'lucide-react'
+import { Claim, PremiumPlan } from '../types'
 
 interface Props {
   claims: Claim[]
@@ -216,6 +216,231 @@ function AssessmentModal({ claim, onClose, onSave }: {
   )
 }
 
+// ── Premium tiers (DB-driven) ─────────────────────────────────────────────────
+
+const PLAN_BADGE: Record<string, string> = {
+  Silver:   'bg-slate-100 text-slate-600 border-slate-300',
+  Gold:     'bg-amber-100 text-amber-700 border-amber-300',
+  Platinum: 'bg-indigo-100 text-indigo-700 border-indigo-300',
+}
+
+interface PremiumRow {
+  plan_name: string
+  price: number
+  coverage: number
+  claimsPaid: number
+  claimsAsked: number
+  count: number
+}
+
+function computePremiumRows(claims: Claim[], plans: PremiumPlan[], species: 'Cat' | 'Dog'): PremiumRow[] {
+  const speciesPlans = plans
+    .filter(p => p.species === species)
+    .sort((a, b) => a.sort_order - b.sort_order || a.coverage - b.coverage)
+
+  const src = claims.filter(c => c.species === species)
+
+  return speciesPlans.map((plan, i) => {
+    const prevCoverage = i === 0 ? -1 : speciesPlans[i - 1].coverage
+    const isLast = i === speciesPlans.length - 1
+    const bucket = src.filter(c => {
+      const val = c.sum_insured || ((c.medicine_cost || 0) + (c.service_cost || 0))
+      return isLast ? val > prevCoverage : val > prevCoverage && val <= plan.coverage
+    })
+    return {
+      plan_name: plan.plan_name,
+      price: plan.price,
+      coverage: plan.coverage,
+      claimsPaid: bucket.reduce((s, c) => s + (c.total_amount_paid || 0), 0),
+      claimsAsked: bucket.reduce((s, c) => s + (c.medicine_cost || 0) + (c.service_cost || 0), 0),
+      count: bucket.length,
+    }
+  })
+}
+
+function PremiumTable({ species, rows }: { species: 'Cat' | 'Dog'; rows: PremiumRow[] }) {
+  const totalPaid  = rows.reduce((s, r) => s + r.claimsPaid, 0)
+  const totalAsked = rows.reduce((s, r) => s + r.claimsAsked, 0)
+  const totalCount = rows.reduce((s, r) => s + r.count, 0)
+  const fmt = (v: number) => `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  const accent = species === 'Cat'
+    ? { ring: 'ring-pink-200', icon: 'text-pink-600', badge: 'bg-pink-50 text-pink-700 border-pink-200', soft: 'bg-pink-50/40' }
+    : { ring: 'ring-blue-200', icon: 'text-blue-600', badge: 'bg-blue-50 text-blue-700 border-blue-200', soft: 'bg-blue-50/40' }
+  const lossRatio = totalAsked > 0 ? totalPaid / totalAsked : 0
+
+  return (
+    <div className={`flex-1 min-w-0 rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ${accent.ring} overflow-hidden`}>
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="flex items-start gap-3">
+          <div className={`w-10 h-10 rounded-xl ${accent.soft} flex items-center justify-center`}>
+            <PawPrint className={`w-5 h-5 ${accent.icon}`} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-sm font-semibold text-slate-800">Premium breakdown</h4>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${accent.badge}`}>
+                {species}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">Configured tiers and claim buckets for this species</p>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Claims Paid</div>
+            <div className="text-xs font-bold text-slate-800 tabular-nums">{fmt(totalPaid)}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Claims Asked</div>
+            <div className="text-xs font-bold text-slate-800 tabular-nums">{fmt(totalAsked)}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Count</div>
+            <div className="text-xs font-bold text-slate-800 tabular-nums">{totalCount.toLocaleString()}</div>
+          </div>
+          <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Loss Ratio</div>
+            <div className="text-xs font-bold text-slate-800 tabular-nums">{(lossRatio * 100).toFixed(1)}%</div>
+          </div>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="px-5 py-10 text-center">
+          <div className="text-sm font-semibold text-slate-600">No premium tiers configured</div>
+          <div className="text-xs text-slate-400 mt-1">Add plans in Premiums to see breakdowns here.</div>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-white">
+              <tr className="border-b border-slate-100">
+                {['Plan', 'Premium', 'Coverage', 'Paid', 'Asked', 'Count'].map(h => (
+                  <th
+                    key={h}
+                    className={`px-4 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap ${h !== 'Plan' ? 'text-right' : ''}`}
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {rows.map((r, i) => {
+                const isTop = i === 0
+                const rowRatio = r.claimsAsked > 0 ? r.claimsPaid / r.claimsAsked : 0
+                return (
+                  <tr
+                    key={i}
+                    className={`transition-colors ${isTop ? 'bg-slate-50/60' : 'hover:bg-slate-50'}`}
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${PLAN_BADGE[r.plan_name] ?? 'bg-slate-100 text-slate-600 border-slate-200'}`}>
+                          {r.plan_name}
+                        </span>
+                        {rowRatio > 0 && (
+                          <span className="text-[10px] text-slate-400 tabular-nums">{(rowRatio * 100).toFixed(0)}% LR</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800 text-right tabular-nums">{fmt(r.price)}</td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800 text-right tabular-nums">{fmt(r.coverage)}</td>
+                    <td className="px-4 py-2.5 text-slate-600 text-right tabular-nums">{fmt(r.claimsPaid)}</td>
+                    <td className="px-4 py-2.5 text-slate-600 text-right tabular-nums">{fmt(r.claimsAsked)}</td>
+                    <td className="px-4 py-2.5 text-slate-700 font-semibold text-right tabular-nums">{r.count.toLocaleString()}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-slate-200 bg-slate-50">
+                <td className="px-4 py-2.5 font-bold text-slate-700">Total</td>
+                <td className="px-4 py-2.5"></td>
+                <td className="px-4 py-2.5"></td>
+                <td className="px-4 py-2.5 font-bold text-slate-700 text-right tabular-nums">{fmt(totalPaid)}</td>
+                <td className="px-4 py-2.5 font-bold text-slate-700 text-right tabular-nums">{fmt(totalAsked)}</td>
+                <td className="px-4 py-2.5 font-bold text-slate-700 text-right tabular-nums">{totalCount.toLocaleString()}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── DOB age-group tables ──────────────────────────────────────────────────────
+
+const AGE_GROUPS = [
+  { label: '< 28 years old',    test: (age: number) => age > 0 && age < 28 },
+  { label: '29 to 44 years old', test: (age: number) => age >= 29 && age <= 44 },
+  { label: '45 to 60 years old', test: (age: number) => age >= 45 && age <= 60 },
+  { label: '66+',                test: (age: number) => age >= 66 },
+  { label: 'N/A',                test: (age: number) => !age || age <= 0 },
+]
+
+function computeDobRows(claims: Claim[]) {
+  return AGE_GROUPS.map(g => {
+    const bucket = claims.filter(c => g.test(c.client_age ?? 0))
+    return {
+      label: g.label,
+      paid:  bucket.reduce((s, c) => s + (c.total_amount_paid || 0), 0),
+      asked: bucket.reduce((s, c) => s + (c.medicine_cost || 0) + (c.service_cost || 0), 0),
+    }
+  })
+}
+
+function DobTable({ title, rows }: { title: string; rows: ReturnType<typeof computeDobRows> }) {
+  const maxAsked = Math.max(...rows.map(r => r.asked))
+  const totalPaid = rows.reduce((s, r) => s + r.paid, 0)
+  const totalAsked = rows.reduce((s, r) => s + r.asked, 0)
+  const fmt = (v: number) =>
+    v === 0 ? '₱0.00' : `₱${v.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  return (
+    <div className="flex-1 min-w-0 overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead>
+          <tr>
+            <td colSpan={3} className="px-4 py-3 text-center text-sm font-bold text-slate-700 uppercase tracking-wide border-b border-slate-100 bg-slate-50">
+              {title}
+            </td>
+          </tr>
+          <tr className="border-b border-slate-100">
+            <th className="px-4 py-2.5 text-left font-semibold text-slate-500 w-36"></th>
+            <th className="px-4 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">Claims Paid</th>
+            <th className="px-4 py-2.5 text-left font-semibold text-slate-500 whitespace-nowrap">Total Claims Asked</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-50">
+          {rows.map((r, i) => {
+            const isHighest = r.asked > 0 && r.asked === maxAsked
+            return (
+              <tr key={i} className={isHighest ? 'bg-green-50' : 'hover:bg-slate-50 transition-colors'}>
+                <td className={`px-4 py-2.5 font-semibold whitespace-nowrap ${isHighest ? 'text-green-800' : 'text-slate-700'}`}>
+                  {r.label}
+                </td>
+                <td className={`px-4 py-2.5 ${isHighest ? 'text-green-700' : 'text-slate-600'}`}>{fmt(r.paid)}</td>
+                <td className={`px-4 py-2.5 font-bold ${isHighest ? 'text-green-800' : 'text-slate-700'}`}>{fmt(r.asked)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-slate-200 bg-slate-50">
+            <td className="px-4 py-2.5 font-bold text-slate-700">Total</td>
+            <td className="px-4 py-2.5 font-bold text-slate-700">{fmt(totalPaid)}</td>
+            <td className="px-4 py-2.5 font-bold text-slate-700">{fmt(totalAsked)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 
 const RISK_COLORS: Record<string, string> = {
@@ -231,15 +456,33 @@ export default function UnderwritingPage({ claims, onRefresh }: Props) {
   const [sortKey, setSortKey] = useState<'score' | 'total'>('score')
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc')
   const [successMsg, setSuccessMsg] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo]     = useState('')
+  const [plans, setPlans] = useState<PremiumPlan[]>([])
+  const [premiumSpecies, setPremiumSpecies] = useState<'Cat' | 'Dog'>('Cat')
+  const [dobSpecies, setDobSpecies] = useState<'Total' | 'Cat' | 'Dog'>('Total')
+
+  useEffect(() => {
+    window.api.getPremiumPlans().then(setPlans).catch(() => setPlans([]))
+  }, [])
+
+  // Apply date filter to all claims on this page
+  const dateClaims = useMemo(() => claims.filter(c => {
+    if (dateFrom && c.created_at < dateFrom) return false
+    if (dateTo   && c.created_at > dateTo + 'T23:59:59') return false
+    return true
+  }), [claims, dateFrom, dateTo])
+
+  const dateActive = !!(dateFrom || dateTo)
 
   const scored = useMemo<ScoredClaim[]>(() => {
-    return claims
+    return dateClaims
       .filter(c => c.status === 'Open' || c.status === 'Pending')
       .map(c => {
-        const score = riskScore(c, claims)
-        return { ...c, score, level: riskLevel(score), factors: riskFactors(c, claims) }
+        const score = riskScore(c, dateClaims)
+        return { ...c, score, level: riskLevel(score), factors: riskFactors(c, dateClaims) }
       })
-  }, [claims])
+  }, [dateClaims])
 
   const riskDist = useMemo(() => {
     const counts: Record<string, number> = { Critical: 0, High: 0, Medium: 0, Low: 0 }
@@ -255,6 +498,21 @@ export default function UnderwritingPage({ claims, onRefresh }: Props) {
       return sortDir === 'desc' ? bv - av : av - bv
     })
   }, [scored, filterLevel, sortKey, sortDir])
+
+  const catPremiumRows = useMemo(() => computePremiumRows(dateClaims, plans, 'Cat'), [dateClaims, plans])
+  const dogPremiumRows = useMemo(() => computePremiumRows(dateClaims, plans, 'Dog'), [dateClaims, plans])
+  const premiumRows = useMemo(
+    () => premiumSpecies === 'Cat' ? catPremiumRows : dogPremiumRows,
+    [premiumSpecies, catPremiumRows, dogPremiumRows]
+  )
+  const dobAllRows = useMemo(() => computeDobRows(dateClaims), [dateClaims])
+  const dobCatRows = useMemo(() => computeDobRows(dateClaims.filter(c => c.species === 'Cat')), [dateClaims])
+  const dobDogRows = useMemo(() => computeDobRows(dateClaims.filter(c => c.species === 'Dog')), [dateClaims])
+  const dobRows = useMemo(() => {
+    if (dobSpecies === 'Cat') return dobCatRows
+    if (dobSpecies === 'Dog') return dobDogRows
+    return dobAllRows
+  }, [dobSpecies, dobAllRows, dobCatRows, dobDogRows])
 
   const kpis = useMemo(() => ({
     pending: scored.length,
@@ -317,6 +575,87 @@ export default function UnderwritingPage({ claims, onRefresh }: Props) {
 
   return (
     <div className="p-6 space-y-6">
+
+      {/* Date range filter bar */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3.5 flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600 flex-shrink-0">
+          <CalendarRange className="w-4 h-4 text-blue-500" />
+          Date Range
+        </div>
+
+        {/* Quick preset buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {([
+            { label: '7d',   days: 7   },
+            { label: '30d',  days: 30  },
+            { label: '90d',  days: 90  },
+            { label: 'Month', month: true },
+            { label: 'Year',  year: true },
+          ] as { label: string; days?: number; month?: boolean; year?: boolean }[]).map(p => {
+            function applyPreset() {
+              const now = new Date()
+              const pad = (n: number) => String(n).padStart(2, '0')
+              const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+              if (p.days) {
+                const from = new Date(now); from.setDate(now.getDate() - p.days)
+                setDateFrom(fmt(from)); setDateTo(fmt(now))
+              } else if (p.month) {
+                const from = new Date(now.getFullYear(), now.getMonth(), 1)
+                setDateFrom(fmt(from)); setDateTo(fmt(now))
+              } else if (p.year) {
+                const from = new Date(now.getFullYear(), 0, 1)
+                setDateFrom(fmt(from)); setDateTo(fmt(now))
+              }
+            }
+            return (
+              <button
+                key={p.label}
+                onClick={applyPreset}
+                className="px-2.5 py-1 text-xs font-medium rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-600 transition-colors"
+              >
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400 whitespace-nowrap">From</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => setDateFrom(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-400 whitespace-nowrap">To</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => setDateTo(e.target.value)}
+              className="text-xs px-3 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-700"
+            />
+          </div>
+          {dateActive && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo('') }}
+              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Clear
+            </button>
+          )}
+        </div>
+
+        {dateActive && (
+          <span className="text-xs text-blue-600 font-medium bg-blue-50 px-3 py-1 rounded-full whitespace-nowrap ml-auto">
+            {dateClaims.length} of {claims.length} claims
+          </span>
+        )}
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 xl:grid-cols-5 gap-4">
         {[
@@ -517,6 +856,57 @@ export default function UnderwritingPage({ claims, onRefresh }: Props) {
         <div className="px-5 py-3 border-t border-slate-100 text-xs text-slate-400 flex items-center justify-between">
           <span>{filtered.length} claim{filtered.length !== 1 ? 's' : ''} in queue</span>
           <span>Risk score: 0–29 Low · 30–49 Medium · 50–69 High · 70+ Critical</span>
+        </div>
+      </div>
+
+      {/* Premium of Cats and Dogs */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start gap-4 flex-wrap">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-slate-700">Premium of Cats and Dogs</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Claims aggregated by species and premium tier (bucketed by claim value)</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Species</span>
+            <select
+              value={premiumSpecies}
+              onChange={e => setPremiumSpecies(e.target.value as 'Cat' | 'Dog')}
+              className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="Cat">Cat</option>
+              <option value="Dog">Dog</option>
+            </select>
+          </div>
+        </div>
+        <div className="p-5">
+          <PremiumTable species={premiumSpecies} rows={premiumRows} />
+        </div>
+      </div>
+
+      {/* Client DOB Data */}
+      <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-start gap-4 flex-wrap">
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-slate-700">Client’s Age</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Claims paid and asked grouped by client age bracket · highlighted row = highest claim volume</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">View</span>
+            <select
+              value={dobSpecies}
+              onChange={e => setDobSpecies(e.target.value as 'Total' | 'Cat' | 'Dog')}
+              className="px-3 py-2 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="Total">Total</option>
+              <option value="Cat">Cat</option>
+              <option value="Dog">Dog</option>
+            </select>
+          </div>
+        </div>
+        <div className="p-5">
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <DobTable title="Clients Age" rows={dobRows} />
+          </div>
         </div>
       </div>
 

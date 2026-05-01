@@ -4,7 +4,6 @@ import { Claim } from '../types'
 
 export interface SidebarFilters {
   species: string[]
-  claimTypes: string[]
   petGender: string
   petAgeRange: [number, number]
   weightRange: [number, number]
@@ -16,7 +15,6 @@ export interface SidebarFilters {
 
 export const DEFAULT_FILTERS: SidebarFilters = {
   species: [],
-  claimTypes: [],
   petGender: '',
   petAgeRange: [0, 20],
   weightRange: [0, 50],
@@ -30,7 +28,6 @@ function isDefault(f: SidebarFilters): boolean {
   const d = DEFAULT_FILTERS
   return (
     f.species.length === 0 &&
-    f.claimTypes.length === 0 &&
     f.petGender === '' &&
     f.petAgeRange[0] === d.petAgeRange[0] && f.petAgeRange[1] === d.petAgeRange[1] &&
     f.weightRange[0] === d.weightRange[0] && f.weightRange[1] === d.weightRange[1] &&
@@ -130,7 +127,7 @@ export default function FilterSidebar({ claims, filters, onChange, onClose }: Pr
   const set = <K extends keyof SidebarFilters>(k: K, v: SidebarFilters[K]) =>
     onChange({ ...filters, [k]: v })
 
-  const toggleArr = (k: 'species' | 'claimTypes', val: string) => {
+  const toggleArr = (k: 'species', val: string) => {
     const arr = filters[k]
     set(k, arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val])
   }
@@ -138,18 +135,15 @@ export default function FilterSidebar({ claims, filters, onChange, onClose }: Pr
   // Counts per dimension (over all claims, not filtered)
   const counts = useMemo(() => {
     const species: Record<string, number> = {}
-    const types: Record<string, number> = {}
     const breeds: Record<string, number> = {}
     for (const c of claims) {
       species[c.species] = (species[c.species] || 0) + 1
-      types[c.claim_type] = (types[c.claim_type] || 0) + 1
       breeds[c.breed] = (breeds[c.breed] || 0) + 1
     }
-    return { species, types, breeds }
+    return { species, breeds }
   }, [claims])
 
   const speciesList = Object.keys(counts.species).sort()
-  const typesList = Object.keys(counts.types).sort()
 
   // Dynamic breeds: filter by selected species
   const breedsForSpecies = useMemo(() => {
@@ -163,7 +157,6 @@ export default function FilterSidebar({ claims, filters, onChange, onClose }: Pr
 
   const activeCount = (
     filters.species.length +
-    filters.claimTypes.length +
     (filters.petGender ? 1 : 0) +
     (filters.breed ? 1 : 0) +
     (filters.diagnosis ? 1 : 0) +
@@ -238,19 +231,6 @@ export default function FilterSidebar({ claims, filters, onChange, onClose }: Pr
               {b}
             </button>
           ))}
-        </Section>
-
-        {/* Claim Type */}
-        <Section title="Claim Type">
-          <div className="space-y-0.5">
-            {typesList.map(t => (
-              <CheckItem
-                key={t} label={t} count={counts.types[t]}
-                checked={filters.claimTypes.includes(t)}
-                onChange={() => toggleArr('claimTypes', t)}
-              />
-            ))}
-          </div>
         </Section>
 
         {/* Pet Gender */}

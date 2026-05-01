@@ -69,12 +69,9 @@ export default function PetAnalyticsPage({ claims }: { claims: Claim[] }) {
     // Pet age distribution
     const petAges = claims.map(c => c.age).filter(v => v !== null && v !== undefined)
     const petAgeBuckets = [
-      { label: '0–1', min: 0, max: 2 },
-      { label: '2–3', min: 2, max: 4 },
-      { label: '4–5', min: 4, max: 6 },
-      { label: '6–8', min: 6, max: 9 },
-      { label: '9–12', min: 9, max: 13 },
-      { label: '13+', min: 13, max: 99 },
+      { label: 'Young (<1)', min: 0, max: 1 },
+      { label: 'Adult (≥1)', min: 1, max: 7 },
+      { label: 'Senior (≥7)', min: 7, max: 99 },
     ]
     const petAgeHist = bucket(petAges, petAgeBuckets)
 
